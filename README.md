@@ -16,6 +16,10 @@ Then open `http://127.0.0.1:4173/`.
 
 Press play on the setup page to enter the caller. That press does not call a ball. Press play again on the caller to start. Nothing is spoken before the first tap.
 
+## Page
+https://mangohk.github.io/bingo_caller/
+
+
 ## Languages
 
 The list has English and 粵語. Each name is written in its own language. A text badge sits in front of the name: EN for English, 粵 for 粵語. The list does not use flags.
