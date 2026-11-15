@@ -299,6 +299,7 @@
       row.querySelector('.lang-pick').setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     var langMeta = BingoDomain.LANGUAGES.filter(function (item) { return item.id === state.language; })[0];
+    document.querySelector('#lang-chip .lang-badge').textContent = langMeta.badge;
     document.querySelector('#lang-chip .lang-name').textContent = langMeta.label;
     document.getElementById('lang-chip').setAttribute('aria-label', labels.language + ', ' + langMeta.label);
     document.getElementById('settings-open').setAttribute('aria-label', labels.settings);

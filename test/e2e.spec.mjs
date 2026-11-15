@@ -121,8 +121,13 @@ test('setup play opens a quiet table, then play, pause, re-read, language, slide
   await expect(page.locator('#replay')).toBeDisabled();
   await expect(page.locator('#hero')).toHaveClass(/placeholder/);
   expect(await audible(page)).toEqual([]);
-  await expect(page.locator('#lang-chip .lang-badge')).toHaveCount(0);
+  await expect(page.locator('#lang-chip .lang-badge')).toHaveText('粵');
   await expect(page.locator('#lang-chip .lang-name')).toHaveText('粵語');
+  expect(await page.locator('#lang-chip').evaluate((el) => {
+    const badge = el.querySelector('.lang-badge');
+    const name = el.querySelector('.lang-name');
+    return Boolean(badge && name && (badge.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING));
+  })).toBe(true);
 
   await page.locator('#transport').click();
   await expect(page.locator('#replay')).toBeEnabled();
@@ -171,6 +176,7 @@ test('setup play opens a quiet table, then play, pause, re-read, language, slide
   expect((await audible(page)).at(-1)).toBe(english);
   expect((await audible(page)).length).toBe(beforeSwitch + 1);
   await expect(page.locator('#hero .num')).toHaveText(second.number);
+  await expect(page.locator('#lang-chip .lang-badge')).toHaveText('EN');
   await expect(page.locator('#lang-chip .lang-name')).toHaveText('English');
   await expect(page.locator('#progress')).toHaveText('2／75');
 
@@ -205,8 +211,14 @@ test('setup play opens a quiet table, then play, pause, re-read, language, slide
   await expect(page.locator('#progress')).toHaveText('0／75');
   await expect(page.locator('#replay')).toBeDisabled();
   await expect(page.locator('#hero')).toHaveClass(/placeholder/);
+  await expect(page.locator('#lang-chip .lang-badge')).toHaveText('EN');
   await expect(page.locator('#lang-chip .lang-name')).toHaveText('English');
   await expect(page.locator('#table')).toBeVisible();
+  await page.locator('#settings-open').click();
+  await page.locator('#settings-langs .lang-pick').filter({ hasText: '粵語' }).click();
+  await expect(page.locator('#lang-chip .lang-badge')).toHaveText('粵');
+  await expect(page.locator('#lang-chip .lang-name')).toHaveText('粵語');
+  await page.locator('#settings-close').click();
 
   fs.mkdirSync(ARTIFACTS, { recursive: true });
   await page.screenshot({ path: path.join(ARTIFACTS, 'portrait-ready.png'), fullPage: true });

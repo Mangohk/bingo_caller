@@ -232,7 +232,8 @@ button:disabled { cursor: default; }
   letter-spacing: 0.04em;
   line-height: 1;
 }
-.lang-row.on .lang-badge {
+.lang-row.on .lang-badge,
+.lang-chip .lang-badge {
   border-color: transparent;
   background: rgba(255, 255, 255, 0.72);
   color: var(--lang-ink);
