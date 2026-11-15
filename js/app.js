@@ -47,6 +47,7 @@
   var wakeNoted = false;
   var audioPrimed = false;
   var lastBall = null;
+  var countdownTick = null;
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var langDialog = document.getElementById('lang-dialog');
   var settingsDialog = document.getElementById('settings-dialog');
@@ -334,8 +335,60 @@
     paintHero(state, labels);
     paintTransport(state, labels);
     paintBoard(state);
+    paintCountdown(state);
     if (state.confirmNewGame && !confirmDialog.open) confirmDialog.showModal();
     if (!state.confirmNewGame && confirmDialog.open) confirmDialog.close();
+  }
+
+  function stopCountdownTick() {
+    if (countdownTick != null) {
+      window.clearInterval(countdownTick);
+      countdownTick = null;
+    }
+  }
+
+  function showEl(el, on) {
+    if (on) el.removeAttribute('hidden');
+    else el.setAttribute('hidden', '');
+  }
+
+  function paintCountdown(state) {
+    var seconds = document.getElementById('wait-seconds');
+    var ring = document.getElementById('wait-ring');
+    var wave = document.getElementById('sound-wave');
+    var ms = state.waitRemainingMs;
+    showEl(wave, !!state.speaking && !reduceMotion);
+    if (ms == null) {
+      showEl(seconds, false);
+      seconds.textContent = '';
+      seconds.removeAttribute('data-frozen');
+      showEl(ring, false);
+      ring.style.removeProperty('--remain');
+      ring.removeAttribute('data-frozen');
+      stopCountdownTick();
+      return;
+    }
+    var total = state.intervalSec * 1000;
+    var ratio = total > 0 ? ms / total : 0;
+    if (ratio < 0) ratio = 0;
+    if (ratio > 1) ratio = 1;
+    showEl(seconds, true);
+    seconds.textContent = String(Math.ceil(ms / 1000));
+    showEl(ring, true);
+    ring.style.setProperty('--remain', String(ratio));
+    if (state.phase === 'paused') {
+      seconds.dataset.frozen = 'true';
+      ring.dataset.frozen = 'true';
+      stopCountdownTick();
+      return;
+    }
+    seconds.removeAttribute('data-frozen');
+    ring.removeAttribute('data-frozen');
+    if (countdownTick == null) {
+      countdownTick = window.setInterval(function () {
+        paintCountdown(session.getState());
+      }, 100);
+    }
   }
 
   function paintHero(state, labels) {

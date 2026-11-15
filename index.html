@@ -74,12 +74,26 @@
         </div>
         <div class="transport">
           <p id="progress" class="progress">0／75</p>
-          <button id="transport" class="play" type="button" data-mode="play">
-            <svg class="icon-play" width="32" height="32" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5.2v13.6c0 .7.8 1.1 1.4.7l10-6.8a.8.8 0 0 0 0-1.4l-10-6.8A.8.8 0 0 0 8 5.2z"/></svg>
-            <svg class="icon-pause" width="32" height="32" viewBox="0 0 24 24" aria-hidden="true" hidden><path fill="currentColor" d="M6 4.5h4.2v15H6zM13.8 4.5H18v15h-4.2z"/></svg>
-            <svg class="icon-new" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" hidden><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.2-5.5"/><path fill="currentColor" d="M19.2 3.2v5.2h-5.2z"/></svg>
-            <span class="transport-label"></span>
-          </button>
+          <div class="play-wrap">
+            <span id="wait-seconds" class="wait-seconds" hidden></span>
+            <svg id="wait-ring" class="wait-ring" viewBox="0 0 100 100" aria-hidden="true" hidden>
+              <circle cx="50" cy="50" r="46" pathLength="100"></circle>
+            </svg>
+            <span id="sound-wave" class="sound-wave" aria-hidden="true" hidden>
+              <svg viewBox="0 0 156 100">
+                <path class="wave outer" d="M22 24C6 38 6 62 22 76"></path>
+                <path class="wave" d="M30 32C18 40 18 60 30 68"></path>
+                <path class="wave" d="M126 32C138 40 138 60 126 68"></path>
+                <path class="wave outer" d="M134 24C150 38 150 62 134 76"></path>
+              </svg>
+            </span>
+            <button id="transport" class="play" type="button" data-mode="play">
+              <svg class="icon-play" width="32" height="32" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5.2v13.6c0 .7.8 1.1 1.4.7l10-6.8a.8.8 0 0 0 0-1.4l-10-6.8A.8.8 0 0 0 8 5.2z"/></svg>
+              <svg class="icon-pause" width="32" height="32" viewBox="0 0 24 24" aria-hidden="true" hidden><path fill="currentColor" d="M6 4.5h4.2v15H6zM13.8 4.5H18v15h-4.2z"/></svg>
+              <svg class="icon-new" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" hidden><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M20 12a8 8 0 1 1-2.2-5.5"/><path fill="currentColor" d="M19.2 3.2v5.2h-5.2z"/></svg>
+              <span class="transport-label"></span>
+            </button>
+          </div>
           <button id="replay" class="icon-btn" type="button" disabled>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M16 9.5a4 4 0 0 1 0 5"/><path d="M18.5 7a7 7 0 0 1 0 10"/></svg>
           </button>

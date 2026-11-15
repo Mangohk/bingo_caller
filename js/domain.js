@@ -93,13 +93,57 @@ var BingoDomain = (function () {
     var timer = null;
     var speaking = false;
     var speechGen = 0;
-    var speechEndedAt = null;
+    // Gap clock for the ball on screen. It opens when that ball's utterance
+    // ends. Pause and a later re-read freeze it; drawing a new ball resets it.
+    var gapOpen = false;
+    var elapsedMs = 0;
+    var runningSince = null;
 
     function clearTimer() {
       if (timer != null) {
         deps.clearTimer(timer);
         timer = null;
       }
+    }
+
+    function elapsedNow() {
+      if (runningSince == null) return elapsedMs;
+      return elapsedMs + (deps.now() - runningSince);
+    }
+
+    function waitRemainingMs() {
+      if (state.view !== 'table') return null;
+      if (speaking) return null;
+      if (state.confirmNewGame) return null;
+      if (state.phase !== 'calling' && state.phase !== 'paused') return null;
+      if (!gapOpen) return null;
+      if (!state.order.length) return null;
+      var remain = state.intervalSec * 1000 - elapsedNow();
+      if (remain <= 0) return 0;
+      return remain;
+    }
+
+    function resetWait() {
+      gapOpen = false;
+      elapsedMs = 0;
+      runningSince = null;
+    }
+
+    function pauseWaitClock() {
+      if (runningSince == null) return;
+      elapsedMs += deps.now() - runningSince;
+      runningSince = null;
+    }
+
+    function startWaitClock() {
+      if (runningSince == null) runningSince = deps.now();
+    }
+
+    function openGap() {
+      if (gapOpen) return;
+      gapOpen = true;
+      elapsedMs = 0;
+      runningSince = null;
     }
 
     function snapshot() {
@@ -117,6 +161,8 @@ var BingoDomain = (function () {
         previous: previous,
         confirmNewGame: state.confirmNewGame,
         replayEnabled: current != null,
+        speaking: speaking,
+        waitRemainingMs: waitRemainingMs(),
       };
     }
 
@@ -126,32 +172,43 @@ var BingoDomain = (function () {
 
     function armGap() {
       clearTimer();
-      if (state.phase !== 'calling') return;
-      if (state.confirmNewGame) return;
-      if (speaking) return;
-      if (speechEndedAt == null) return;
-      if (!state.order.length) return;
-      var remain = state.intervalSec * 1000 - (deps.now() - speechEndedAt);
+      if (state.phase !== 'calling') return false;
+      if (state.confirmNewGame) return false;
+      if (speaking) return false;
+      if (!gapOpen) return false;
+      if (!state.order.length) return false;
+      var remain = state.intervalSec * 1000 - elapsedNow();
       if (remain <= 0) {
         draw();
-        return;
+        return true;
       }
       timer = deps.setTimer(function () {
         timer = null;
         draw();
       }, remain);
+      return false;
     }
 
     function speakText(text, lang) {
       speaking = true;
-      speechEndedAt = null;
+      pauseWaitClock();
       clearTimer();
       var gen = ++speechGen;
+      emit();
       deps.speak(text, lang, function () {
         if (gen !== speechGen) return;
         speaking = false;
-        speechEndedAt = deps.now();
-        armGap();
+        var track = state.view === 'table'
+          && !state.confirmNewGame
+          && (state.phase === 'calling' || state.phase === 'paused')
+          && state.order.length;
+        if (track) openGap();
+        var drew = false;
+        if (track && state.phase === 'calling') {
+          startWaitClock();
+          drew = armGap();
+        }
+        if (!drew) emit();
       });
     }
 
@@ -161,6 +218,7 @@ var BingoDomain = (function () {
       if (state.confirmNewGame) return;
       if (!state.order.length) {
         state.phase = 'done';
+        resetWait();
         emit();
         return;
       }
@@ -168,7 +226,7 @@ var BingoDomain = (function () {
       state.order = state.order.slice(1);
       state.called = state.called.concat([n]);
       if (state.called.length === 75) state.phase = 'done';
-      emit();
+      resetWait();
       speakText(utterance(n, state.language), state.language);
     }
 
@@ -176,7 +234,7 @@ var BingoDomain = (function () {
       clearTimer();
       speechGen += 1;
       speaking = false;
-      speechEndedAt = null;
+      resetWait();
       state.view = 'table';
       state.phase = 'idle';
       state.order = shuffledDeck(random);
@@ -190,6 +248,8 @@ var BingoDomain = (function () {
       if (!state.called.length) return confirmNewGame();
       state.confirmNewGame = true;
       clearTimer();
+      pauseWaitClock();
+      resetWait();
       emit();
       return snapshot();
     }
@@ -197,10 +257,15 @@ var BingoDomain = (function () {
     function cancelNewGame() {
       if (!state.confirmNewGame) return snapshot();
       state.confirmNewGame = false;
-      emit();
       if (!speaking && state.phase === 'calling') {
-        speechEndedAt = deps.now();
-        armGap();
+        openGap();
+        elapsedMs = 0;
+        runningSince = null;
+        startWaitClock();
+        var drew = armGap();
+        if (!drew) emit();
+      } else {
+        emit();
       }
       return snapshot();
     }
@@ -222,14 +287,18 @@ var BingoDomain = (function () {
           draw();
         } else if (state.phase === 'calling') {
           state.phase = 'paused';
+          pauseWaitClock();
           clearTimer();
           emit();
         } else if (state.phase === 'paused') {
           state.phase = 'calling';
-          emit();
           if (!speaking) {
-            speechEndedAt = deps.now();
-            armGap();
+            if (!gapOpen) openGap();
+            startWaitClock();
+            var drew = armGap();
+            if (!drew) emit();
+          } else {
+            emit();
           }
         } else if (state.phase === 'done') {
           return requestNewGame();
@@ -238,18 +307,23 @@ var BingoDomain = (function () {
       },
       setInterval: function (sec) {
         state.intervalSec = clampInterval(sec);
-        emit();
-        if (!speaking && state.phase === 'calling' && !state.confirmNewGame) armGap();
+        if (!speaking && state.phase === 'calling' && !state.confirmNewGame && gapOpen) {
+          var drew = armGap();
+          if (!drew) emit();
+        } else {
+          emit();
+        }
         return snapshot();
       },
       setLanguage: function (id) {
         if (id !== 'en' && id !== 'yue') return snapshot();
         if (id === state.language) return snapshot();
         state.language = id;
-        emit();
         if (state.view === 'table' && state.called.length) {
           var current = state.called[state.called.length - 1];
           speakText(utterance(current, id), id);
+        } else {
+          emit();
         }
         return snapshot();
       },
