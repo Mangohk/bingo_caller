@@ -1,0 +1,12 @@
+{
+  "name": "bingo-caller",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/domain.test.mjs",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
+}
