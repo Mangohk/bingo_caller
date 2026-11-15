@@ -302,11 +302,14 @@ test('the remaining wait starts only after speech ends', function () {
   h.session.pressTransport();
   assert.equal(h.session.getState().phase, 'calling');
   assert.equal(h.spoken.length, 1);
+  assert.equal(h.session.getState().speaking, true);
   assert.equal(h.session.getState().waitRemainingMs, null);
   h.advance(20000);
   assert.equal(h.spoken.length, 1);
+  assert.equal(h.session.getState().speaking, true);
   assert.equal(h.session.getState().waitRemainingMs, null);
   h.endSpeech();
+  assert.equal(h.session.getState().speaking, false);
   assert.equal(h.session.getState().waitRemainingMs, 8000);
   h.advance(2500);
   assert.equal(h.spoken.length, 1);

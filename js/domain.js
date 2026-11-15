@@ -161,6 +161,7 @@ var BingoDomain = (function () {
         previous: previous,
         confirmNewGame: state.confirmNewGame,
         replayEnabled: current != null,
+        speaking: speaking,
         waitRemainingMs: waitRemainingMs(),
       };
     }

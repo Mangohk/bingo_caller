@@ -347,29 +347,47 @@
     }
   }
 
-  // Reads the domain's remaining wait. The number is a temporary stand-in.
+  function showEl(el, on) {
+    if (on) el.removeAttribute('hidden');
+    else el.setAttribute('hidden', '');
+  }
+
   function paintCountdown(state) {
-    var el = document.getElementById('wait-remaining');
+    var seconds = document.getElementById('wait-seconds');
+    var ring = document.getElementById('wait-ring');
+    var wave = document.getElementById('sound-wave');
     var ms = state.waitRemainingMs;
+    showEl(wave, !!state.speaking && !reduceMotion);
     if (ms == null) {
-      el.hidden = true;
-      el.textContent = '';
-      el.removeAttribute('data-frozen');
+      showEl(seconds, false);
+      seconds.textContent = '';
+      seconds.removeAttribute('data-frozen');
+      showEl(ring, false);
+      ring.style.removeProperty('--remain');
+      ring.removeAttribute('data-frozen');
       stopCountdownTick();
       return;
     }
-    el.hidden = false;
-    el.textContent = String(Math.ceil(ms / 1000));
+    var total = state.intervalSec * 1000;
+    var ratio = total > 0 ? ms / total : 0;
+    if (ratio < 0) ratio = 0;
+    if (ratio > 1) ratio = 1;
+    showEl(seconds, true);
+    seconds.textContent = String(Math.ceil(ms / 1000));
+    showEl(ring, true);
+    ring.style.setProperty('--remain', String(ratio));
     if (state.phase === 'paused') {
-      el.dataset.frozen = 'true';
+      seconds.dataset.frozen = 'true';
+      ring.dataset.frozen = 'true';
       stopCountdownTick();
       return;
     }
-    el.removeAttribute('data-frozen');
+    seconds.removeAttribute('data-frozen');
+    ring.removeAttribute('data-frozen');
     if (countdownTick == null) {
       countdownTick = window.setInterval(function () {
         paintCountdown(session.getState());
-      }, 250);
+      }, 100);
     }
   }
 
