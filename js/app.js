@@ -47,6 +47,7 @@
   var wakeNoted = false;
   var audioPrimed = false;
   var lastBall = null;
+  var countdownTick = null;
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var langDialog = document.getElementById('lang-dialog');
   var settingsDialog = document.getElementById('settings-dialog');
@@ -334,8 +335,42 @@
     paintHero(state, labels);
     paintTransport(state, labels);
     paintBoard(state);
+    paintCountdown(state);
     if (state.confirmNewGame && !confirmDialog.open) confirmDialog.showModal();
     if (!state.confirmNewGame && confirmDialog.open) confirmDialog.close();
+  }
+
+  function stopCountdownTick() {
+    if (countdownTick != null) {
+      window.clearInterval(countdownTick);
+      countdownTick = null;
+    }
+  }
+
+  // Reads the domain's remaining wait. The number is a temporary stand-in.
+  function paintCountdown(state) {
+    var el = document.getElementById('wait-remaining');
+    var ms = state.waitRemainingMs;
+    if (ms == null) {
+      el.hidden = true;
+      el.textContent = '';
+      el.removeAttribute('data-frozen');
+      stopCountdownTick();
+      return;
+    }
+    el.hidden = false;
+    el.textContent = String(Math.ceil(ms / 1000));
+    if (state.phase === 'paused') {
+      el.dataset.frozen = 'true';
+      stopCountdownTick();
+      return;
+    }
+    el.removeAttribute('data-frozen');
+    if (countdownTick == null) {
+      countdownTick = window.setInterval(function () {
+        paintCountdown(session.getState());
+      }, 250);
+    }
   }
 
   function paintHero(state, labels) {

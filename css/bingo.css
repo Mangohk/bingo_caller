@@ -521,6 +521,16 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 0;
 }
 .transport .icon-btn { justify-self: end; }
+/* Temporary numeric stand-in for the post-speech wait. Not a final treatment. */
+.wait-remaining {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
 .play-slider { width: min(100%, 560px); padding-bottom: 4px; }
 .play-slider .slider-val { font-size: 28px; flex-basis: 48px; }
 .play-slider .clock { width: 36px; height: 36px; flex-basis: 36px; }

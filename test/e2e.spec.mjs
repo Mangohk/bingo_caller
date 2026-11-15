@@ -287,6 +287,106 @@ test('all four themes recolor the page and the night ball keeps dark digits', as
   await page.locator('#settings-close').click();
 });
 
+test('the countdown shows only after speech and freezes while paused', async ({ page }) => {
+  await page.clock.install();
+  await page.setViewportSize({ width: 834, height: 1194 });
+  await page.goto('/');
+  const setupOrder = await page.locator('#setup').evaluate((root) => {
+    const slider = root.querySelector('.slider-row');
+    const themes = root.querySelector('.theme-row');
+    return Boolean(slider && themes && (slider.compareDocumentPosition(themes) & Node.DOCUMENT_POSITION_FOLLOWING));
+  });
+  expect(setupOrder).toBe(true);
+  await expect(page.locator('#wait-remaining')).toHaveCount(1);
+  await expect(page.locator('#wait-remaining')).toBeHidden();
+
+  await page.locator('#setup-play').click();
+  await expect(page.locator('#table')).toBeVisible();
+  await expect(page.locator('#wait-remaining')).toBeHidden();
+  await page.locator('#settings-open').click();
+  await expect(page.locator('#settings-dialog input[type="range"]')).toHaveCount(0);
+  await page.locator('#settings-close').click();
+
+  await page.locator('#transport').click();
+  await expect(page.locator('#progress')).toHaveText('1／75');
+  await expect(page.locator('#wait-remaining')).toBeHidden();
+  await page.clock.runFor(5000);
+  await expect(page.locator('#progress')).toHaveText('1／75');
+  await expect(page.locator('#wait-remaining')).toBeHidden();
+
+  await page.evaluate(() => window.__endSpeech());
+  await expect(page.locator('#wait-remaining')).toBeVisible();
+  await expect(page.locator('#wait-remaining')).toHaveText('8');
+  const heroBox = await page.locator('#hero').boundingBox();
+  expect(heroBox.width).toBeGreaterThanOrEqual(240);
+  await expect(page.locator('#hero .band')).not.toHaveText('');
+  await expect(page.locator('progress')).toHaveCount(0);
+
+  await page.clock.runFor(3000);
+  await expect(page.locator('#wait-remaining')).toHaveText('5');
+  await expect(page.locator('#progress')).toHaveText('1／75');
+  fs.mkdirSync(ARTIFACTS, { recursive: true });
+  await page.screenshot({ path: path.join(ARTIFACTS, 'countdown-wait.png') });
+
+  await page.locator('#transport').click();
+  await expect(page.locator('#transport')).toHaveAttribute('data-mode', 'play');
+  await expect(page.locator('#wait-remaining')).toHaveText('5');
+  await expect(page.locator('#wait-remaining')).toHaveAttribute('data-frozen', 'true');
+  await page.clock.runFor(20000);
+  await expect(page.locator('#wait-remaining')).toHaveText('5');
+  await expect(page.locator('#progress')).toHaveText('1／75');
+
+  await page.locator('#transport').click();
+  await expect(page.locator('#transport')).toHaveAttribute('data-mode', 'pause');
+  await expect(page.locator('#wait-remaining')).toHaveText('5');
+  await expect(page.locator('#wait-remaining')).not.toHaveAttribute('data-frozen', 'true');
+  await page.clock.runFor(2000);
+  await expect(page.locator('#wait-remaining')).toHaveText('3');
+  await page.clock.runFor(1000);
+  await expect(page.locator('#progress')).toHaveText('1／75');
+  await expect(page.locator('#wait-remaining')).toHaveText('2');
+  await page.clock.runFor(3000);
+  await expect(page.locator('#progress')).toHaveText('2／75');
+  await expect(page.locator('#wait-remaining')).toBeHidden();
+});
+
+test('the slider retimes the countdown without cutting speech', async ({ page }) => {
+  await page.clock.install();
+  await page.setViewportSize({ width: 834, height: 1194 });
+  await page.goto('/');
+  await page.locator('#setup-play').click();
+  await page.locator('#transport').click();
+  const duringSpeech = (await audible(page)).length;
+  await setRange(page, '#table-interval', 4);
+  await page.clock.runFor(2000);
+  expect(await audible(page)).toHaveLength(duringSpeech);
+  await expect(page.locator('#wait-remaining')).toBeHidden();
+  await page.evaluate(() => window.__endSpeech());
+  await expect(page.locator('#wait-remaining')).toHaveText('4');
+  await page.clock.runFor(2000);
+  expect(await audible(page)).toHaveLength(duringSpeech);
+  await expect(page.locator('#wait-remaining')).toHaveText('2');
+  await page.clock.runFor(3000);
+  expect(await audible(page)).toHaveLength(duringSpeech + 1);
+  await expect(page.locator('#progress')).toHaveText('2／75');
+  await expect(page.locator('#wait-remaining')).toBeHidden();
+
+  await page.evaluate(() => window.__endSpeech());
+  await expect(page.locator('#wait-remaining')).toHaveText('4');
+  await page.clock.runFor(2000);
+  await expect(page.locator('#wait-remaining')).toHaveText('2');
+  await page.locator('#replay').click();
+  await expect(page.locator('#wait-remaining')).toBeHidden();
+  await expect(page.locator('#progress')).toHaveText('2／75');
+  await setRange(page, '#table-interval', 1);
+  await page.clock.runFor(500);
+  expect(await audible(page)).toHaveLength(duringSpeech + 2);
+  await page.evaluate(() => window.__endSpeech());
+  expect(await audible(page)).toHaveLength(duringSpeech + 3);
+  await expect(page.locator('#progress')).toHaveText('3／75');
+  await expect(page.locator('#wait-remaining')).toBeHidden();
+});
+
 test('the last ball stops auto-call and releases the wake lock', async ({ page }) => {
   await page.clock.install();
   await page.setViewportSize({ width: 834, height: 1110 });
@@ -301,11 +401,13 @@ test('the last ball stops auto-call and releases the wake lock', async ({ page }
   await expect(page.locator('#progress')).toHaveText('75／75');
   await expect(page.locator('#transport')).toHaveAttribute('aria-label', '新一局');
   await expect(page.locator('#hero')).toHaveClass(/is-done/);
+  await expect(page.locator('#wait-remaining')).toBeHidden();
   const spoken = (await audible(page)).length;
   expect(spoken).toBe(75);
   await page.evaluate(() => window.__endSpeech());
   await page.clock.runFor(5000);
   expect(await audible(page)).toHaveLength(75);
+  await expect(page.locator('#wait-remaining')).toBeHidden();
   expect(await page.evaluate(() => window.__locks.releases)).toBeGreaterThanOrEqual(1);
   await page.locator('#transport').click();
   await expect(page.locator('#confirm-text')).toHaveText('已叫的數會清零');

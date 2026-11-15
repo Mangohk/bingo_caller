@@ -292,3 +292,133 @@ test('interval clamps to 1..30', function () {
   assert.equal(Bingo.clampInterval(31), 30);
   assert.equal(Bingo.clampInterval(8.4), 8);
 });
+
+test('the remaining wait starts only after speech ends', function () {
+  const h = harness();
+  assert.equal(h.session.getState().waitRemainingMs, null);
+  h.session.enterTable();
+  assert.equal(h.session.getState().phase, 'idle');
+  assert.equal(h.session.getState().waitRemainingMs, null);
+  h.session.pressTransport();
+  assert.equal(h.session.getState().phase, 'calling');
+  assert.equal(h.spoken.length, 1);
+  assert.equal(h.session.getState().waitRemainingMs, null);
+  h.advance(20000);
+  assert.equal(h.spoken.length, 1);
+  assert.equal(h.session.getState().waitRemainingMs, null);
+  h.endSpeech();
+  assert.equal(h.session.getState().waitRemainingMs, 8000);
+  h.advance(2500);
+  assert.equal(h.spoken.length, 1);
+  assert.equal(h.session.getState().waitRemainingMs, 5500);
+});
+
+test('pause freezes the remaining wait and resume continues it', function () {
+  const h = harness();
+  h.session.enterTable();
+  h.session.pressTransport();
+  h.endSpeech();
+  h.advance(3000);
+  assert.equal(h.session.getState().waitRemainingMs, 5000);
+  h.session.pressTransport();
+  assert.equal(h.session.getState().phase, 'paused');
+  assert.equal(h.session.getState().waitRemainingMs, 5000);
+  h.advance(60000);
+  assert.equal(h.session.getState().called.length, 1);
+  assert.equal(h.session.getState().waitRemainingMs, 5000);
+  h.session.pressTransport();
+  assert.equal(h.session.getState().phase, 'calling');
+  assert.equal(h.session.getState().waitRemainingMs, 5000);
+  h.advance(4999);
+  assert.equal(h.session.getState().called.length, 1);
+  assert.equal(h.session.getState().waitRemainingMs, 1);
+  h.advance(1);
+  assert.equal(h.session.getState().called.length, 2);
+  assert.equal(h.session.getState().waitRemainingMs, null);
+});
+
+test('a slider change during speech waits out the new gap and does not cut speech', function () {
+  const h = harness();
+  h.session.enterTable();
+  h.session.pressTransport();
+  const first = h.spoken[0].text;
+  h.advance(5000);
+  h.session.setInterval(4);
+  assert.equal(h.spoken.length, 1);
+  assert.equal(h.spoken[0].text, first);
+  assert.equal(h.session.getState().waitRemainingMs, null);
+  h.endSpeech();
+  assert.equal(h.spoken.length, 1);
+  assert.equal(h.session.getState().waitRemainingMs, 4000);
+  h.advance(3999);
+  assert.equal(h.spoken.length, 1);
+  assert.equal(h.session.getState().waitRemainingMs, 1);
+  h.advance(1);
+  assert.equal(h.spoken.length, 2);
+});
+
+test('a shorter gap chosen while a re-read is speaking calls the next ball when that speech ends', function () {
+  const h = harness();
+  h.session.enterTable();
+  h.session.pressTransport();
+  h.endSpeech();
+  h.advance(5000);
+  assert.equal(h.session.getState().waitRemainingMs, 3000);
+  h.session.replayCurrent();
+  assert.equal(h.spoken.length, 2);
+  assert.equal(h.session.getState().called.length, 1);
+  assert.equal(h.session.getState().waitRemainingMs, null);
+  h.advance(2000);
+  h.session.setInterval(4);
+  assert.equal(h.spoken.length, 2);
+  assert.equal(h.session.getState().waitRemainingMs, null);
+  h.endSpeech();
+  assert.equal(h.spoken.length, 3);
+  assert.equal(h.session.getState().called.length, 2);
+  assert.equal(h.session.getState().waitRemainingMs, null);
+});
+
+test('a slider change during the wait rewrites the countdown and fires if the new gap has elapsed', function () {
+  const h = harness();
+  h.session.enterTable();
+  h.session.pressTransport();
+  h.endSpeech();
+  h.advance(2000);
+  h.session.setInterval(12);
+  assert.equal(h.spoken.length, 1);
+  assert.equal(h.session.getState().waitRemainingMs, 10000);
+  h.advance(3000);
+  assert.equal(h.session.getState().waitRemainingMs, 7000);
+  h.session.setInterval(4);
+  assert.equal(h.spoken.length, 2);
+  assert.equal(h.session.getState().called.length, 2);
+  assert.equal(h.session.getState().waitRemainingMs, null);
+});
+
+test('there is no countdown on setup, while idle, or after the last ball', function () {
+  const h = harness();
+  h.session.trial('en');
+  assert.equal(h.session.getState().view, 'setup');
+  assert.equal(h.session.getState().waitRemainingMs, null);
+  h.endSpeech();
+  h.advance(30000);
+  assert.equal(h.session.getState().waitRemainingMs, null);
+  assert.equal(h.spoken.length, 1);
+
+  h.session.enterTable();
+  assert.equal(h.session.getState().phase, 'idle');
+  assert.equal(h.session.getState().waitRemainingMs, null);
+
+  h.session.pressTransport();
+  while (h.session.getState().phase !== 'done') {
+    h.endSpeech();
+    h.advance(8000);
+  }
+  assert.equal(h.session.getState().called.length, 75);
+  assert.equal(h.session.getState().waitRemainingMs, null);
+  h.endSpeech();
+  h.advance(60000);
+  assert.equal(h.session.getState().called.length, 75);
+  assert.equal(h.session.getState().waitRemainingMs, null);
+  assert.equal(h.pendingTimers(), 0);
+});
